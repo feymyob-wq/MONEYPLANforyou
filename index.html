@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>MoneyPlan — Kelola Uangmu, Kelola Hidupmu</title>
+
+<!-- Fonts: Sora for display (banking-app geometric feel), Inter for body, JetBrains Mono for all currency figures (ledger/ticker feel) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ============================================================
+     TOAST NOTIFICATION CONTAINER (global, floats above everything)
+============================================================ -->
+<div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+<!-- ============================================================
+     SKELETON / LOADING OVERLAY (shown briefly on boot & heavy ops)
+============================================================ -->
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="loading-ring"></div>
+  <p>Menyiapkan MoneyPlan…</p>
+</div>
+
+<!-- ============================================================
+     AUTH SCREENS (Login / Register)
+============================================================ -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-bg-orb orb-1"></div>
+  <div class="auth-bg-orb orb-2"></div>
+
+  <div class="auth-card glass">
+    <div class="brand">
+      <div class="brand-mark">MP</div>
+      <h1>MoneyPlan</h1>
+      <p class="brand-tag">Setiap rupiah, terencana.</p>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <form id="loginForm" class="auth-form">
+      <div class="field">
+        <label for="loginUsername">Nama Pengguna</label>
+        <input type="text" id="loginUsername" placeholder="Masukkan nama pengguna" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="loginPassword" placeholder="Masukkan password" autocomplete="current-password" required>
+          <button type="button" class="pw-toggle" data-target="loginPassword">👁️</button>
+        </div>
+      </div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="rememberMe">
+        <span>Ingat Saya</span>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Masuk</button>
+      <p class="switch-line">Belum punya akun? <button type="button" id="showRegister" class="link-btn">Buat Akun</button></p>
+    </form>
+
+    <!-- REGISTER FORM -->
+    <form id="registerForm" class="auth-form hidden">
+      <div class="field">
+        <label for="regName">Nama</label>
+        <input type="text" id="regName" placeholder="Nama lengkap kamu" required>
+      </div>
+      <div class="field">
+        <label for="regPassword">Password</label>
+        <input type="password" id="regPassword" placeholder="Buat password" required>
+      </div>
+      <div class="field">
+        <label for="regConfirm">Konfirmasi Password</label>
+        <input type="password" id="regConfirm" placeholder="Ulangi password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Buat Akun</button>
+      <p class="switch-line">Sudah punya akun? <button type="button" id="showLogin" class="link-btn">Masuk</button></p>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN APP (hidden until logged in)
+============================================================ -->
+<div id="app" class="app hidden">
+
+  <!-- ---------- NAVBAR ---------- -->
+  <header class="navbar glass">
+    <div class="navbar-left">
+      <div class="brand-mark small">MP</div>
+      <div class="greeting">
+        <span id="greetingText">Halo, Pengguna 👋</span>
+        <span class="greeting-sub" id="dateToday"></span>
+      </div>
+    </div>
+    <div class="navbar-right">
+      <button id="darkModeToggle" class="icon-btn" title="Ganti Tema">🌙</button>
+      <button id="logoutBtn" class="icon-btn" title="Keluar">🚪</button>
+    </div>
+  </header>
+
+  <!-- ---------- TAB CONTENT ---------- -->
+  <main class="main-content">
+
+    <!-- ============ DASHBOARD TAB ============ -->
+    <section id="tab-dashboard" class="tab-panel active">
+
+      <div class="hero-balance glass">
+        <span class="hero-label">Saldo Saat Ini</span>
+        <h2 id="heroBalance" class="mono">Rp 0</h2>
+        <div class="hero-sub-row">
+          <div class="hero-sub income">
+            <span>⬆️ Pemasukan</span>
+            <strong id="heroIncome" class="mono">Rp 0</strong>
+          </div>
+          <div class="hero-sub expense">
+            <span>⬇️ Pengeluaran</span>
+            <strong id="heroExpense" class="mono">Rp 0</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Add -->
+      <div class="quick-add-row">
+        <span class="quick-add-label">Tambah Cepat</span>
+        <div class="quick-add-buttons">
+          <button class="chip quick-add" data-amt="10000">+10rb</button>
+          <button class="chip quick-add" data-amt="50000">+50rb</button>
+          <button class="chip quick-add" data-amt="100000">+100rb</button>
+          <button class="chip quick-add-full" id="openTxModal">＋ Transaksi</button>
+        </div>
+      </div>
+
+      <!-- Financial Health Ring (signature element) -->
+      <div class="health-card glass">
+        <div class="health-ring-wrap">
+          <svg viewBox="0 0 120 120" class="health-ring">
+            <circle cx="60" cy="60" r="52" class="ring-track"></circle>
+            <circle cx="60" cy="60" r="52" class="ring-progress" id="healthRingProgress"></circle>
+          </svg>
+          <div class="health-ring-label">
+            <span id="healthGrade">-</span>
+            <small>Peringkat</small>
+          </div>
+        </div>
+        <div class="health-details">
+          <h3>Kesehatan Keuangan</h3>
+          <p id="healthMotivation">Mulai catat transaksi untuk melihat insight kamu.</p>
+          <div class="badge-row" id="badgeRow"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Savings Target -->
+        <div class="card glass">
+          <div class="card-head">
+            <h3>🎯 Target Tabungan</h3>
+            <button class="link-btn" id="editTargetBtn">Atur</button>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill target-fill" id="targetProgressBar"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="targetPercent" class="mono">0%</span>
+            <span id="targetNumbers" class="mono">Rp 0 / Rp 0</span>
+          </div>
+          <p class="micro-note" id="targetCountdown"></p>
+          <p class="micro-note" id="targetEstimate"></p>
+        </div>
+
+        <!-- Monthly Budget -->
+        <div class="card glass">
+          <div class="card-head">
+            <h3>📊 Budget Bulanan</h3>
+            <button class="link-btn" id="editBudgetBtn">Atur</button>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill budget-fill" id="budgetProgressBar"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="budgetPercent" class="mono">0%</span>
+            <span id="budgetNumbers" class="mono">Rp 0 / Rp 0</span>
+          </div>
+          <p class="micro-note" id="budgetStatus">🟢 Aman</p>
+        </div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="card glass">
+        <div class="card-head">
+          <h3>🕘 Riwayat Terbaru</h3>
+          <button class="link-btn" data-goto="tab-transaksi">Lihat Semua</button>
+        </div>
+        <div id="recentTxList" class="tx-list"></div>
+      </div>
+
+    </section>
+
+    <!-- ============ TRANSAKSI TAB ============ -->
+    <section id="tab-transaksi" class="tab-panel">
+      <div class="panel-head">
+        <h2>Transaksi</h2>
+        <button class="btn btn-primary" id="openTxModal2">＋ Tambah</button>
+      </div>
+
+      <div class="search-filter-row">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Cari kategori, keterangan, atau tanggal...">
+        <select id="filterSelect" class="filter-select">
+          <option value="all">Semua</option>
+          <option value="today">Hari ini</option>
+          <option value="week">Minggu ini</option>
+          <option value="month">Bulan ini</option>
+          <option value="year">Tahun ini</option>
+        </select>
+      </div>
+
+      <div class="card glass">
+        <div id="fullTxList" class="tx-list"></div>
+        <div id="txEmptyState" class="empty-state hidden">
+          <div class="empty-icon">🧾</div>
+          <h4>Belum ada transaksi</h4>
+          <p>Mulai catat pemasukan dan pengeluaranmu di sini.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ KALENDER TAB ============ -->
+    <section id="tab-kalender" class="tab-panel">
+      <div class="panel-head">
+        <h2>Kalender Transaksi</h2>
+      </div>
+      <div class="card glass">
+        <div class="calendar-nav">
+          <button id="calPrev" class="icon-btn">◀</button>
+          <span id="calMonthLabel" class="mono"></span>
+          <button id="calNext" class="icon-btn">▶</button>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
+      <div class="card glass">
+        <h3 id="calSelectedDateLabel">Pilih tanggal untuk melihat detail</h3>
+        <div id="calSelectedList" class="tx-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ ANALITIK TAB ============ -->
+    <section id="tab-analitik" class="tab-panel">
+      <div class="panel-head">
+        <h2>Analitik</h2>
+        <div class="stat-period-tabs">
+          <button class="chip stat-period active" data-period="week">Mingguan</button>
+          <button class="chip stat-period" data-period="month">Bulanan</button>
+          <button class="chip stat-period" data-period="year">Tahunan</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="stat-card glass"><span>Pengeluaran Terbesar</span><strong id="statBiggestExpense" class="mono">-</strong></div>
+        <div class="stat-card glass"><span>Kategori Paling Boros</span><strong id="statTopCategory" class="mono">-</strong></div>
+        <div class="stat-card glass"><span>Rata-rata Pengeluaran</span><strong id="statAvgExpense" class="mono">-</strong></div>
+        <div class="stat-card glass"><span>Jumlah Transaksi</span><strong id="statTxCount" class="mono">-</strong></div>
+        <div class="stat-card glass"><span>Jumlah Pemasukan</span><strong id="statIncomeCount" class="mono">-</strong></div>
+        <div class="stat-card glass"><span>Jumlah Pengeluaran</span><strong id="statExpenseCount" class="mono">-</strong></div>
+      </div>
+
+      <div class="card glass insight-card">
+        <h3>💡 Insight Otomatis</h3>
+        <ul id="insightList" class="insight-list"></ul>
+      </div>
+
+      <div class="card glass chart-card">
+        <div class="chart-head"><h3>Pemasukan vs Pengeluaran</h3><button class="link-btn export-png" data-chart="chartIncomeExpense">Export PNG</button></div>
+        <canvas id="chartIncomeExpense"></canvas>
+      </div>
+      <div class="card glass chart-card">
+        <div class="chart-head"><h3>Pengeluaran per Bulan</h3><button class="link-btn export-png" data-chart="chartPerMonth">Export PNG</button></div>
+        <canvas id="chartPerMonth"></canvas>
+      </div>
+      <div class="card glass chart-card">
+        <div class="chart-head"><h3>Pengeluaran per Kategori</h3><button class="link-btn export-png" data-chart="chartPerCategory">Export PNG</button></div>
+        <canvas id="chartPerCategory"></canvas>
+      </div>
+      <div class="card glass chart-card">
+        <div class="chart-head"><h3>Perkembangan Saldo</h3><button class="link-btn export-png" data-chart="chartBalance">Export PNG</button></div>
+        <canvas id="chartBalance"></canvas>
+      </div>
+
+      <div class="export-row">
+        <button class="btn btn-secondary" id="exportPdfBtn">📄 Export PDF</button>
+        <button class="btn btn-secondary" id="exportExcelBtn">📊 Export Excel</button>
+        <button class="btn btn-secondary" id="importExcelBtn">📥 Import Excel</button>
+        <button class="btn btn-secondary" id="printReportBtn">🖨️ Print Laporan</button>
+        <input type="file" id="importExcelInput" accept=".xlsx,.xls,.csv" class="hidden">
+      </div>
+    </section>
+
+    <!-- ============ PENGATURAN TAB ============ -->
+    <section id="tab-pengaturan" class="tab-panel">
+      <div class="panel-head"><h2>Pengaturan</h2></div>
+
+      <div class="card glass">
+        <h3>Profil</h3>
+        <div class="field"><label for="settingsName">Ubah Nama</label><input type="text" id="settingsName"></div>
+        <button class="btn btn-secondary" id="saveNameBtn">Simpan Nama</button>
+      </div>
+
+      <div class="card glass">
+        <h3>Keamanan</h3>
+        <div class="field"><label for="settingsOldPw">Password Lama</label><input type="password" id="settingsOldPw"></div>
+        <div class="field"><label for="settingsNewPw">Password Baru</label><input type="password" id="settingsNewPw"></div>
+        <button class="btn btn-secondary" id="savePwBtn">Ubah Password</button>
+      </div>
+
+      <div class="card glass">
+        <h3>Backup &amp; Restore</h3>
+        <div class="export-row">
+          <button class="btn btn-secondary" id="backupJsonBtn">⬇️ Backup Data (JSON)</button>
+          <button class="btn btn-secondary" id="restoreJsonBtn">⬆️ Restore Data (JSON)</button>
+          <input type="file" id="restoreJsonInput" accept=".json" class="hidden">
+        </div>
+      </div>
+
+      <div class="card glass danger-zone">
+        <h3>⚠️ Reset Data</h3>
+        <div class="export-row">
+          <button class="btn btn-danger" data-reset="transaksi">Reset Transaksi</button>
+          <button class="btn btn-danger" data-reset="budget">Reset Budget</button>
+          <button class="btn btn-danger" data-reset="target">Reset Target</button>
+          <button class="btn btn-danger" data-reset="semua">Reset Semua Data</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ---------- BOTTOM NAV (mobile-banking style) ---------- -->
+  <nav class="bottom-nav glass">
+    <button class="nav-item active" data-tab="tab-dashboard"><span>🏠</span>Beranda</button>
+    <button class="nav-item" data-tab="tab-transaksi"><span>🧾</span>Transaksi</button>
+    <button class="nav-item" data-tab="tab-kalender"><span>📅</span>Kalender</button>
+    <button class="nav-item" data-tab="tab-analitik"><span>📈</span>Analitik</button>
+    <button class="nav-item" data-tab="tab-pengaturan"><span>⚙️</span>Atur</button>
+  </nav>
+</div>
+
+<!-- ============================================================
+     TRANSACTION MODAL (add / edit)
+============================================================ -->
+<div id="txModal" class="modal-overlay hidden">
+  <div class="modal glass">
+    <div class="modal-head">
+      <h3 id="txModalTitle">Tambah Transaksi</h3>
+      <button class="icon-btn" id="closeTxModal">✕</button>
+    </div>
+    <form id="txForm">
+      <input type="hidden" id="txId">
+      <div class="type-switch">
+        <button type="button" class="type-btn active" data-type="pemasukan">⬆️ Pemasukan</button>
+        <button type="button" class="type-btn" data-type="pengeluaran">⬇️ Pengeluaran</button>
+      </div>
+      <div class="field">
+        <label for="txAmount">Nominal (Rp)</label>
+        <input type="number" id="txAmount" min="0" step="1" required placeholder="0">
+      </div>
+      <div class="field">
+        <label for="txCategory">Kategori</label>
+        <select id="txCategory" required></select>
+      </div>
+      <div class="field">
+        <label for="txNote">Keterangan</label>
+        <input type="text" id="txNote" placeholder="Contoh: Makan siang di kantor">
+      </div>
+      <div class="field">
+        <label for="txDate">Tanggal</label>
+        <input type="date" id="txDate" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Simpan Transaksi</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     TARGET / BUDGET EDIT MODAL
+============================================================ -->
+<div id="goalModal" class="modal-overlay hidden">
+  <div class="modal glass small">
+    <div class="modal-head">
+      <h3 id="goalModalTitle">Atur Target Tabungan</h3>
+      <button class="icon-btn" id="closeGoalModal">✕</button>
+    </div>
+    <form id="goalForm">
+      <div class="field">
+        <label id="goalLabel" for="goalAmount">Nominal Target (Rp)</label>
+        <input type="number" id="goalAmount" min="0" step="1" required>
+      </div>
+      <div class="field hidden" id="goalDateField">
+        <label for="goalDate">Target Tercapai Pada</label>
+        <input type="date" id="goalDate">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Simpan</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     CONFIRM DIALOG (logout / delete / reset confirmations)
+============================================================ -->
+<div id="confirmModal" class="modal-overlay hidden">
+  <div class="modal glass small">
+    <div class="modal-head">
+      <h3 id="confirmTitle">Konfirmasi</h3>
+    </div>
+    <p id="confirmMessage" class="confirm-message">Apakah kamu yakin?</p>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="confirmCancel">Batal</button>
+      <button class="btn btn-danger" id="confirmOk">Ya, Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     LIBRARIES (Chart.js for graphs, SheetJS for Excel, jsPDF for PDF)
+============================================================ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="js/script.js"></script>
+</body>
+</html>
